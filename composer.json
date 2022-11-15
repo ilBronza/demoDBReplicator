@@ -1,18 +1,18 @@
 {
     "name": "ilbronza/demodbreplicator",
-    "description": ":package_description",
+    "description": "Replicate a db inside another",
     "license": "MIT",
     "authors": [
         {
-            "name": "Author Name",
-            "email": "author@email.com",
-            "homepage": "http://author.com"
+            "name": "Davide Bronzini",
+            "email": "davide@sistema.srl",
+            "homepage": "https://sistema.srl"
         }
     ],
     "homepage": "https://github.com/ilbronza/demodbreplicator",
     "keywords": ["Laravel", "DemoDBReplicator"],
     "require": {
-        "illuminate/support": "~9"
+        "illuminate/support": "^7"
     },
     "require-dev": {
         "phpunit/phpunit": "~9.0",
@@ -31,7 +31,6 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Ilbronza\\DemoDBReplicator\\DemoDBReplicatorServiceProvider"
             ],
             "aliases": {
                 "DemoDBReplicator": "Ilbronza\\DemoDBReplicator\\Facades\\DemoDBReplicator"
