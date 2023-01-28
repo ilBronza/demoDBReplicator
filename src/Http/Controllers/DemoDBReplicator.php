@@ -1,6 +1,6 @@
 <?php
 
-namespace Ilbronza\DemoDBReplicator\Http\Controller;
+namespace IlBronza\DemoDBReplicator\Http\Controller;
 
 class DemoDBReplicator extends Controller
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace Ilbronza\DemoDBReplicator;
+namespace IlBronza\DemoDBReplicator;
 
 class DemoDBReplicator
 {

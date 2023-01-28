@@ -19,20 +19,21 @@
     },
     "autoload": {
         "psr-4": {
-            "Ilbronza\\DemoDBReplicator\\": "src/"
+            "IlBronza\\DemoDBReplicator\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Ilbronza\\DemoDBReplicator\\Tests\\": "tests"
+            "IlBronza\\DemoDBReplicator\\Tests\\": "tests"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
+                "IlBronza\\DemoDBReplicator\\DemoDBReplicatorServiceProvider"
             ],
             "aliases": {
-                "DemoDBReplicator": "Ilbronza\\DemoDBReplicator\\Facades\\DemoDBReplicator"
+                "DemoDBReplicator": "IlBronza\\DemoDBReplicator\\Facades\\DemoDBReplicator"
             }
         }
     }
