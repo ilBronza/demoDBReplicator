@@ -2,6 +2,7 @@
 
 namespace IlBronza\DemoDBReplicator;
 
+use App\Console\Commands\ReplicateDB;
 use Illuminate\Support\ServiceProvider;
 
 class DemoDBReplicatorServiceProvider extends ServiceProvider
@@ -16,7 +17,7 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
         // $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'ilbronza');
         // $this->loadViewsFrom(__DIR__.'/../resources/views', 'ilbronza');
         // $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
-        $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
+        $this->loadRoutesFrom(__DIR__.'/../routes/dbreplicator.php');
 
         // Publishing is only necessary when using the CLI.
         if ($this->app->runningInConsole()) {
@@ -31,7 +32,7 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/demodbreplicator.php', 'demodbreplicator');
+        $this->mergeConfigFrom(__DIR__.'/../config/dbreplicator.php', 'dbreplicator');
     }
 
     /**
@@ -41,7 +42,7 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
      */
     public function provides()
     {
-        return ['demodbreplicator'];
+        return ['dbreplicator'];
     }
 
     /**
@@ -53,8 +54,8 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
     {
         // Publishing the configuration file.
         $this->publishes([
-            __DIR__.'/../config/demodbreplicator.php' => config_path('demodbreplicator.php'),
-        ], 'demodbreplicator.config');
+            __DIR__.'/../config/dbreplicator.php' => config_path('dbreplicator.php'),
+        ], 'dbreplicator.config');
 
         // Publishing the views.
         /*$this->publishes([
@@ -72,6 +73,8 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
         ], 'deadline.views');*/
 
         // Registering package commands.
-        // $this->commands([]);
+        $this->commands([
+            Commands\ReplicateDB::class,
+        ]);
     }
 }
