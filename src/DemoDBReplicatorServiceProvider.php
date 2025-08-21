@@ -3,10 +3,13 @@
 namespace IlBronza\DemoDBReplicator;
 
 use App\Console\Commands\ReplicateDB;
+use IlBronza\CRUD\Traits\IlBronzaPackages\IlBronzaServiceProviderPackagesTrait;
 use Illuminate\Support\ServiceProvider;
 
 class DemoDBReplicatorServiceProvider extends ServiceProvider
 {
+    use IlBronzaServiceProviderPackagesTrait;
+
     /**
      * Perform post-registration booting of services.
      *
@@ -14,7 +17,7 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'ilbronza');
+        $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'dbReplicator');
         // $this->loadViewsFrom(__DIR__.'/../resources/views', 'ilbronza');
         // $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadRoutesFrom(__DIR__.'/../routes/dbreplicator.php');
@@ -33,6 +36,12 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/dbreplicator.php', 'dbreplicator');
+
+        // Register the service the package provides.
+        $this->app->singleton('dbreplicator', function ($app)
+        {
+            return new DemoDBReplicator;
+        });
     }
 
     /**
