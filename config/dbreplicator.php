@@ -14,6 +14,8 @@ return [
 
     'mySqlDumpPath' =>  env('IB_REPLICATOR_MYSQL_DUMP', '/opt/homebrew/opt/mysql-client/bin/mysqldump'),
 
+    'migrate' => true,
+
     'connections' => [
         'source' => 'mysql',
         'destination' => 'mysql_replications',

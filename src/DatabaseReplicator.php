@@ -133,14 +133,17 @@ class DatabaseReplicator
 
 		$replicator->import();
 
-		$connection = config('dbreplicator.connections.destination');
+		if(config('dbreplicator.migrate'))
+		{
+			$connection = config('dbreplicator.connections.destination');
 
-		$output = shell_exec('cd ' . config('dbreplicator.stagingPath') . ' && php artisan migrate --database=' . $connection . ' --force 2>&1');
+			$output = shell_exec('cd ' . config('dbreplicator.stagingPath') . ' && php artisan migrate --database=' . $connection . ' --force 2>&1');
 
-		$pieces = explode("\n", $output);
+			$pieces = explode("\n", $output);
 
-		foreach($pieces as $piece)
-			if($result = trim($piece))
-				Ukn::s($result);
+			foreach($pieces as $piece)
+				if($result = trim($piece))
+					Ukn::s($result);			
+		}
     }
 }
