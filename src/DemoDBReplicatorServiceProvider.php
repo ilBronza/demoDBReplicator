@@ -3,6 +3,7 @@
 namespace IlBronza\DemoDBReplicator;
 
 use App\Console\Commands\ReplicateDB;
+use IlBronza\DemoDBReplicator\Http\Middleware\DemoDBReplicatorMiddlewareRolesPermissions;
 use IlBronza\CRUD\Traits\IlBronzaPackages\IlBronzaServiceProviderPackagesTrait;
 use Illuminate\Support\ServiceProvider;
 
@@ -21,6 +22,8 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
         // $this->loadViewsFrom(__DIR__.'/../resources/views', 'ilbronza');
         // $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadRoutesFrom(__DIR__.'/../routes/dbreplicator.php');
+
+        $this->app['router']->aliasMiddleware('dbreplicator.roles', DemoDBReplicatorMiddlewareRolesPermissions::class);
 
         // Publishing is only necessary when using the CLI.
         if ($this->app->runningInConsole()) {

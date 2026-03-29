@@ -3,6 +3,13 @@
 use IlBronza\DemoDBReplicator\Http\Controllers\DBReplicatorController;
 
 return [
+    'defaultRoles' => [
+        'superadmin',
+    ],
+
+    'routeRoles' => [
+    ],
+
     'replicatorController' => DBReplicatorController::class,
     'dumpFilePath' => storage_path('app/tmp/'),
     'dumpFileName' => 'dbreplication',
