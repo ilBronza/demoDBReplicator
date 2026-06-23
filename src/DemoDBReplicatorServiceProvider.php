@@ -21,7 +21,7 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'dbReplicator');
         // $this->loadViewsFrom(__DIR__.'/../resources/views', 'ilbronza');
         // $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
-        $this->loadRoutesFrom(__DIR__.'/../routes/dbreplicator.php');
+        $this->loadRoutesFrom(__DIR__.'/../routes/demodbreplicator.php');
 
         $this->app['router']->aliasMiddleware('dbreplicator.roles', DemoDBReplicatorMiddlewareRolesPermissions::class);
 
