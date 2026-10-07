@@ -94,6 +94,7 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
         // Registering package commands.
         $this->commands([
             Commands\ReplicateDB::class,
+            Commands\PullProductionDB::class,
         ]);
     }
 }

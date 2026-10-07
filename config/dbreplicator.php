@@ -28,5 +28,22 @@ return [
     'connections' => [
         'source' => 'mysql',
         'destination' => 'mysql_replications',
-    ]
+    ],
+
+    'pull' => [
+        'destination' => env('IB_REPLICATOR_LOCAL_CONNECTION', 'mysql'),
+        'localHosts' => ['127.0.0.1', 'localhost', '::1', 'mysql', 'mariadb', 'host.docker.internal'],
+        'ssh' => [
+            'binary' => env('IB_REPLICATOR_SSH', 'ssh'),
+            'host' => env('IB_REPLICATOR_SSH_HOST'),
+            'user' => env('IB_REPLICATOR_SSH_USER'),
+            'port' => env('IB_REPLICATOR_SSH_PORT', 22),
+            'identityFile' => env('IB_REPLICATOR_SSH_IDENTITY_FILE'),
+        ],
+        'remote' => [
+            'mysqldumpPath' => env('IB_REPLICATOR_REMOTE_MYSQL_DUMP', 'mysqldump'),
+            'defaultsFile' => env('IB_REPLICATOR_REMOTE_DEFAULTS_FILE'),
+            'database' => env('IB_REPLICATOR_PRODUCTION_DATABASE'),
+        ],
+    ],
 ];
