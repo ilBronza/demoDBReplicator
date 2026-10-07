@@ -1,5 +1,6 @@
 <?php
 
 return [
-	'replicateDb' => 'Copia database su dev2'
+	'packages' => 'Pacchetti',
+	'replicateDb' => 'Replica database'
 ];

@@ -4,8 +4,6 @@ namespace IlBronza\DemoDBReplicator;
 
 use IlBronza\CRUD\Providers\RouterProvider\RoutedObjectInterface;
 use IlBronza\CRUD\Traits\IlBronzaPackages\IlBronzaPackagesTrait;
-use Illuminate\Support\Facades\File;
-use Symfony\Component\Process\Process;
 
 /** this class replicates a database from a source to a destination
  *  the source and destination databases are defined in the config file
@@ -23,24 +21,31 @@ class DemoDBReplicator implements RoutedObjectInterface
 
     public function manageMenuButtons()
     {
+        if (! app()->environment('staging') || ! app()->bound('menu'))
+            return;
+
         if (! $menu = app('menu'))
             return;
 
+        $roles = config('dbreplicator.routeRoles.replicate-db')
+            ?: config('dbreplicator.defaultRoles', ['superadmin']);
+
         $button = $menu->provideButton([
-            'text' => 'generals.settings',
-            'name' => 'settings',
-            'icon' => 'gear',
-            'roles' => ['administrator']
+            'text' => 'dbReplicator::dbReplicator.packages',
+            'name' => 'packages',
+            'icon' => 'cubes',
+            'roles' => $roles
         ]);
 
-        $productsGeneralManagerButton = $menu->createButton([
+        $replicatorButton = $menu->createButton([
             'name' => 'databaseReplicator',
             'icon' => 'database',
             'href' => app('dbreplicator')->route('replicate-db'),
-            'text' => 'dbReplicator::dbReplicator.replicateDb'
+            'text' => 'dbReplicator::dbReplicator.replicateDb',
+            'roles' => $roles
         ]);
 
-        $button->addChild($productsGeneralManagerButton);
+        $button->addChild($replicatorButton);
     }
 
 }

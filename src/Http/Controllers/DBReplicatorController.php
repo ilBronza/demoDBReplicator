@@ -13,7 +13,7 @@ class DBReplicatorController extends Controller
 		$time = microtime(true);
         DatabaseReplicator::replicate();
 
-        Ukn::s('Dabase replicato con successo in ' . round(((microtime(true) - $time) / 1000), 2) . ' secondi');
+        Ukn::s('Database replicato con successo in ' . round(microtime(true) - $time, 2) . ' secondi');
 
         return back();
 	}
