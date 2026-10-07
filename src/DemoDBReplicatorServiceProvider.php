@@ -2,7 +2,6 @@
 
 namespace IlBronza\DemoDBReplicator;
 
-use App\Console\Commands\ReplicateDB;
 use IlBronza\DemoDBReplicator\Http\Middleware\DemoDBReplicatorMiddlewareRolesPermissions;
 use IlBronza\CRUD\Traits\IlBronzaPackages\IlBronzaServiceProviderPackagesTrait;
 use Illuminate\Support\ServiceProvider;
@@ -38,7 +37,15 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $configured = $this->app['config']->get('dbreplicator', []);
         $this->mergeConfigFrom(__DIR__.'/../config/dbreplicator.php', 'dbreplicator');
+
+        // These are complete lists: recursive merging would retain removed options/hosts.
+        foreach (['dumpOptions', 'pull.localHosts'] as $key) {
+            if (\Illuminate\Support\Arr::has($configured, $key)) {
+                $this->app['config']->set('dbreplicator.' . $key, \Illuminate\Support\Arr::get($configured, $key));
+            }
+        }
 
         // Register the service the package provides.
         $this->app->singleton('dbreplicator', function ($app)

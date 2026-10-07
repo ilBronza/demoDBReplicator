@@ -2,7 +2,7 @@
 
 namespace IlBronza\DemoDBReplicator\Commands;
 
-use IlBronza\DemoDBReplicator\DemoDBReplicator;
+use IlBronza\DemoDBReplicator\DatabaseReplicator;
 use Illuminate\Console\Command;
 
 class ReplicateDB extends Command
@@ -12,9 +12,6 @@ class ReplicateDB extends Command
      *
      * @var string
      */
-    // protected $signature = 'mysqldump --defaults-file=/var/www/gestionale/dbopt.cnf idealpack_operations > maranza.sql';
-
-
     protected $signature = 'dbreplicator:replicate';
 
     /**
@@ -22,7 +19,7 @@ class ReplicateDB extends Command
      *
      * @var string
      */
-    protected $description = 'Take a database dump';
+    protected $description = 'Copy the configured source database to the staging database';
 
     /**
      * Create a new command instance.
@@ -41,6 +38,8 @@ class ReplicateDB extends Command
      */
     public function handle()
     {
-        return DemoDBReplicator::replicate();
+        DatabaseReplicator::replicate();
+
+        return 0;
     }
 }

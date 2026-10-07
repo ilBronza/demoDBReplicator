@@ -12,6 +12,7 @@
     "homepage": "https://github.com/ilbronza/demodbreplicator",
     "keywords": ["Laravel", "DemoDBReplicator"],
     "require": {
+        "symfony/process": "^5.4 || ^6.0 || ^7.0 || ^8.0"
     },
     "require-dev": {
     },
@@ -22,7 +23,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "IlBronza\\DemoDBReplicator\\Tests\\": "tests"
+            "IlBronza\\DemoDBReplicator\\Tests\\": "tests",
+            "App\\Http\\Controllers\\": "tests/Fixtures/App/Http/Controllers"
         }
     },
     "extra": {

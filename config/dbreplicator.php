@@ -16,10 +16,12 @@ return [
 
     'stagingPath' => env('IB_REPLICATOR_STAGING_PATH', '/var/www/gestionaledev'),
 
-    'tcp_socketString' =>  env('IB_REPLICATOR_SOCKET_TCP', '-S /var/run/mysqld/mysqld.sock'),
-    // 'tcp_socketString' =>  env('IB_REPLICATOR_SOCKET_TCP', '-S /var/run/mysqld/mysqld.sock'),
-
-    'mySqlDumpPath' =>  env('IB_REPLICATOR_MYSQL_DUMP', '/opt/homebrew/opt/mysql-client/bin/mysqldump'),
+    'mySqlDumpPath' => env('IB_REPLICATOR_MYSQL_DUMP', 'mysqldump'),
+    'mysqlPath' => env('IB_REPLICATOR_MYSQL', 'mysql'),
+    'timeout' => 1800,
+    'dumpOptions' => [
+        '--single-transaction', '--quick', '--routines', '--events', '--triggers',
+    ],
 
     'migrate' => true,
 
