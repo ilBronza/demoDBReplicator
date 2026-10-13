@@ -80,8 +80,7 @@ IB_REPLICATOR_SSH_HOST=production.example.com
 IB_REPLICATOR_SSH_USER=deploy
 IB_REPLICATOR_SSH_PORT=22
 IB_REPLICATOR_SSH_IDENTITY_FILE=/Users/your-user/.ssh/id_ed25519
-IB_REPLICATOR_REMOTE_DEFAULTS_FILE=/home/deploy/.dbreplicator.cnf
-IB_REPLICATOR_PRODUCTION_DATABASE=production_database
+IB_REPLICATOR_REMOTE_PROJECT_PATH=/var/www/production-project
 IB_REPLICATOR_LOCAL_CONNECTION=mysql
 ```
 
@@ -90,8 +89,39 @@ are already provided by SSH configuration or an SSH agent. Authentication uses
 `BatchMode=yes`: key authentication and the server's trusted host key must already
 be set up. Password prompts are not supported.
 
-`IB_REPLICATOR_REMOTE_DEFAULTS_FILE` points to an **existing file on production**,
-readable only by the SSH user, containing the remote database access settings:
+`IB_REPLICATOR_REMOTE_PROJECT_PATH` is the Laravel project's **root on production**,
+containing `vendor/autoload.php` and `bootstrap/app.php`. Remote PHP loads Laravel's
+environment and configuration, using the configuration cache when present. The
+database credentials and name are taken from the project's default database
+connection. To select another named connection, set:
+
+```dotenv
+IB_REPLICATOR_REMOTE_CONNECTION=mysql_production
+```
+
+The export helper is sent over SSH: this version of the package does not need to
+be installed or deployed on production. It loads configuration without booting
+application service providers or running Artisan commands. Remote credentials
+stay on the server in a temporary `0600` file, removed after the dump process
+finishes; only SQL is streamed back. It uses the database account configured in
+the remote project, including its existing permissions.
+
+PHP CLI and `mysqldump` must be available to the SSH user on production. Set
+`IB_REPLICATOR_REMOTE_PHP` when PHP is not on `PATH` or a specific PHP version is
+required. The SSH user must be able to read the project's environment/config,
+autoload and bootstrap files and create a temporary credentials file. A configured
+project path always takes precedence; an invalid project does not silently switch
+to another database source.
+
+Alternatively, leave `IB_REPLICATOR_REMOTE_PROJECT_PATH` unset and configure:
+
+```dotenv
+IB_REPLICATOR_REMOTE_DEFAULTS_FILE=/home/deploy/.dbreplicator.cnf
+IB_REPLICATOR_PRODUCTION_DATABASE=production_database
+```
+
+The defaults-file mode reads an **existing file on production**, readable only by
+the SSH user, containing the remote database access settings:
 
 ```ini
 [client]
@@ -101,11 +131,11 @@ host="127.0.0.1"
 port=3306
 ```
 
-Use file permissions `0600`. Remote database credentials remain on the server;
-the package does not read the production `.env` or require a production web
-endpoint. The account needs the permissions required by the chosen dump options,
-including export of routines/events. SSL settings for the remote MySQL client can
-also be configured in this file.
+Use file permissions `0600`. Neither mode requires a production web endpoint.
+The account needs the permissions required by the chosen dump options, including
+export of routines/events. SSL settings for the remote MySQL client can also be
+configured in this file; project mode forwards the Laravel PDO SSL CA, certificate
+and key options.
 
 The destination database must already exist and is selected using the named
 Laravel connection. TCP hosts are restricted to `pull.localHosts`: localhost,
@@ -116,10 +146,12 @@ needed. Unix sockets are also supported.
 ## Required tools and options
 
 - Local environment: PHP, `ssh`, `mysqldump` and `mysql` accessible by the process.
-- Production: `mysqldump` accessible by the SSH user.
+- Production: `mysqldump` accessible by the SSH user, plus PHP CLI (7.4+) for
+  project-root mode, compatible with the remote project's Laravel installation.
 - Local binaries: `IB_REPLICATOR_MYSQL_DUMP`, `IB_REPLICATOR_MYSQL`,
   `IB_REPLICATOR_SSH` (default to executable names on `PATH`).
 - Remote binary: `IB_REPLICATOR_REMOTE_MYSQL_DUMP` (default: `mysqldump`).
+- Remote PHP: `IB_REPLICATOR_REMOTE_PHP` (default: `php`).
 - `timeout`: seconds per process (default: 1800).
 - `dumpOptions`: defaults to `--single-transaction`, `--quick`, `--routines`,
   `--events`, `--triggers`. Adjust for the database engine/version and privileges.

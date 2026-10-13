@@ -227,4 +227,45 @@ class ProductionDatabasePullerTest extends TestCase
         $this->failure = 'download';
         $this->artisan('dbreplicator:pull')->expectsOutput('SSH transfer failed')->assertExitCode(1);
     }
+
+    public function test_remote_project_root_needs_no_defaults_file_or_database_name(): void
+    {
+        config([
+            'dbreplicator.pull.remote.projectPath' => "/var/www/project with 'quotes'",
+            'dbreplicator.pull.remote.defaultsFile' => null,
+            'dbreplicator.pull.remote.database' => null,
+            'dbreplicator.pull.remote.connection' => 'production',
+        ]);
+        $command = $this->puller()->remoteDumpCommand();
+        $remote = end($command);
+
+        $this->assertStringContainsString(escapeshellarg("/var/www/project with 'quotes'"), $remote);
+        $this->assertStringContainsString(escapeshellarg('production'), $remote);
+        $this->assertStringContainsString("'php' '-r'", $remote);
+        $this->assertStringContainsString('RemoteLaravelDatabaseExporter', $remote);
+        $this->puller()->pull();
+        $this->assertSame(['download', 'backup', 'drop', 'import'], $this->events);
+    }
+
+    public function test_remote_php_code_is_valid_and_project_mode_takes_precedence(): void
+    {
+        $puller = new class(new MySqlClient, Mockery::mock(DatabaseReplicator::class)) extends ProductionDatabasePuller {
+            public function arguments(array $remote): array
+            {
+                return $this->remoteLaravelArguments($remote);
+            }
+        };
+        $remote = config('dbreplicator.pull.remote');
+        $remote['projectPath'] = '/var/www/production';
+        $arguments = $puller->arguments($remote);
+        $tokens = token_get_all('<?php ' . $arguments[2], TOKEN_PARSE);
+
+        $this->assertNotEmpty($tokens);
+        $this->assertSame('', $arguments[4]);
+        $this->assertSame(config('dbreplicator.dumpOptions'), json_decode($arguments[6], true));
+
+        config(['dbreplicator.pull.remote.projectPath' => $remote['projectPath']]);
+        $command = $this->puller()->remoteDumpCommand();
+        $this->assertStringNotContainsString('/home/deploy/.mysql.cnf', end($command));
+    }
 }

@@ -70,11 +70,22 @@ class ProductionDatabasePuller
         $ssh = config('dbreplicator.pull.ssh');
         $remote = config('dbreplicator.pull.remote');
 
-        if (empty($ssh['host']) || empty($remote['database']) || empty($remote['defaultsFile'])) {
-            throw new RuntimeException('Configure the SSH host, production database and remote MySQL defaults file.');
+        if (empty($ssh['host'])) {
+            throw new RuntimeException('Configure the SSH host.');
         }
 
-        $this->client->validateDatabaseName($remote['database']);
+        if (! empty($remote['projectPath'])) {
+            $arguments = $this->remoteLaravelArguments($remote);
+        } else {
+            if (empty($remote['database']) || empty($remote['defaultsFile'])) {
+                throw new RuntimeException('Configure the remote project root or the production database and remote MySQL defaults file.');
+            }
+
+            $this->client->validateDatabaseName($remote['database']);
+            $arguments = array_merge([
+                $remote['mysqldumpPath'], '--defaults-file=' . $remote['defaultsFile'],
+            ], $this->client->dumpOptions(), [$remote['database']]);
+        }
 
         $command = [
             $ssh['binary'], '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15',
@@ -88,13 +99,30 @@ class ProductionDatabasePuller
 
         $command[] = '--';
         $command[] = empty($ssh['user']) ? $ssh['host'] : $ssh['user'] . '@' . $ssh['host'];
-        $arguments = array_merge([
-            $remote['mysqldumpPath'], '--defaults-file=' . $remote['defaultsFile'],
-        ], $this->client->dumpOptions(), [$remote['database']]);
-
         // SSH executes this one argument through the remote POSIX shell.
         $command[] = implode(' ', array_map('escapeshellarg', $arguments));
 
         return $command;
+    }
+
+    protected function remoteLaravelArguments(array $remote): array
+    {
+        $source = file_get_contents(__DIR__ . '/RemoteLaravelDatabaseExporter.php');
+
+        if ($source === false) {
+            throw new RuntimeException('Cannot read the remote Laravel export helper.');
+        }
+
+        $code = preg_replace('/^<\?php\s*/', '', $source);
+        $code .= "\n" . 'try { exit((new RemoteLaravelDatabaseExporter)->export($argv[1], $argv[2], $argv[3], json_decode($argv[4], true, 512, JSON_THROW_ON_ERROR))); }'
+            . "\n" . 'catch (\Throwable $exception) { fwrite(STDERR, "Remote Laravel database export failed. Check the project path, connection and permissions.\n"); exit(1); }';
+
+        // Only helper code and nonsecret parameters cross SSH. The remote PHP
+        // reads Laravel config and invokes mysqldump without exposing credentials.
+        return [
+            $remote['phpPath'], '-r', $code,
+            $remote['projectPath'], $remote['connection'] ?? '', $remote['mysqldumpPath'],
+            json_encode($this->client->dumpOptions(), JSON_THROW_ON_ERROR),
+        ];
     }
 }

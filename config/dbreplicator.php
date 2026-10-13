@@ -41,7 +41,11 @@ return [
             'identityFile' => env('IB_REPLICATOR_SSH_IDENTITY_FILE'),
         ],
         'remote' => [
+            'projectPath' => env('IB_REPLICATOR_REMOTE_PROJECT_PATH'),
+            'connection' => env('IB_REPLICATOR_REMOTE_CONNECTION'),
+            'phpPath' => env('IB_REPLICATOR_REMOTE_PHP', 'php'),
             'mysqldumpPath' => env('IB_REPLICATOR_REMOTE_MYSQL_DUMP', 'mysqldump'),
+            // Alternative for servers without an accessible Laravel project.
             'defaultsFile' => env('IB_REPLICATOR_REMOTE_DEFAULTS_FILE'),
             'database' => env('IB_REPLICATOR_PRODUCTION_DATABASE'),
         ],
