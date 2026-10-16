@@ -21,31 +21,43 @@ class DemoDBReplicator implements RoutedObjectInterface
 
     public function manageMenuButtons()
     {
-        if (! app()->environment('staging') || ! app()->bound('menu'))
+        if (! ImportAccess::environmentAllowed() || ! app()->bound('menu'))
             return;
 
         if (! $menu = app('menu'))
             return;
 
-        $roles = config('dbreplicator.routeRoles.replicate-db')
-            ?: config('dbreplicator.defaultRoles', ['superadmin']);
+        $profiles = app(ImportConfiguration::class)->all();
+        if (! count($profiles))
+            return;
+
+        $roles = ['superadmin'];
 
         $button = $menu->provideButton([
-            'text' => 'dbReplicator::dbReplicator.packages',
-            'name' => 'packages',
-            'icon' => 'cubes',
+            'text' => 'menu::menu.settings',
+            'name' => 'settings',
+            'icon' => 'gear',
             'roles' => $roles
         ]);
 
         $replicatorButton = $menu->createButton([
-            'name' => 'databaseReplicator',
+            'name' => 'databaseImports',
             'icon' => 'database',
-            'href' => app('dbreplicator')->route('replicate-db'),
-            'text' => 'dbReplicator::dbReplicator.replicateDb',
+            'text' => 'dbReplicator::dbReplicator.importDatabases',
             'roles' => $roles
         ]);
 
         $button->addChild($replicatorButton);
+
+        foreach ($profiles as $name => $profile) {
+            $replicatorButton->addChild($menu->createButton([
+                'name' => 'databaseImport-' . $name,
+                'icon' => 'database',
+                'href' => route('dbreplicator.import.show', ['database' => $name]),
+                'text' => $profile['label'] ?? $name,
+                'roles' => $roles,
+            ]));
+        }
     }
 
 }

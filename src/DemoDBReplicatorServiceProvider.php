@@ -3,6 +3,8 @@
 namespace IlBronza\DemoDBReplicator;
 
 use IlBronza\DemoDBReplicator\Http\Middleware\DemoDBReplicatorMiddlewareRolesPermissions;
+use IlBronza\DemoDBReplicator\Http\Middleware\EnsureDatabaseImportAllowed;
+use IlBronza\DemoDBReplicator\Http\Middleware\AuthenticateDatabaseExport;
 use IlBronza\CRUD\Traits\IlBronzaPackages\IlBronzaServiceProviderPackagesTrait;
 use Illuminate\Support\ServiceProvider;
 
@@ -18,11 +20,13 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'dbReplicator');
-        // $this->loadViewsFrom(__DIR__.'/../resources/views', 'ilbronza');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'dbReplicator');
         // $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadRoutesFrom(__DIR__.'/../routes/demodbreplicator.php');
 
         $this->app['router']->aliasMiddleware('dbreplicator.roles', DemoDBReplicatorMiddlewareRolesPermissions::class);
+        $this->app['router']->aliasMiddleware('dbreplicator.import', EnsureDatabaseImportAllowed::class);
+        $this->app['router']->aliasMiddleware('dbreplicator.export', AuthenticateDatabaseExport::class);
 
         // Publishing is only necessary when using the CLI.
         if ($this->app->runningInConsole()) {
@@ -41,7 +45,7 @@ class DemoDBReplicatorServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/dbreplicator.php', 'dbreplicator');
 
         // These are complete lists: recursive merging would retain removed options/hosts.
-        foreach (['dumpOptions', 'pull.localHosts'] as $key) {
+        foreach (['dumpOptions', 'pull.localHosts', 'imports', 'export.databases'] as $key) {
             if (\Illuminate\Support\Arr::has($configured, $key)) {
                 $this->app['config']->set('dbreplicator.' . $key, \Illuminate\Support\Arr::get($configured, $key));
             }

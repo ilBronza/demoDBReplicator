@@ -25,6 +25,16 @@ return [
 
     'migrate' => true,
 
+    // Staging/local only. One entry per menu item; see readme.md for examples.
+    // Credentials and destinations are never accepted from browser input.
+    'imports' => [],
+
+    // Production only: explicitly opt in and allowlist each source connection.
+    'export' => [
+        'enabled' => env('IB_REPLICATOR_API_ENABLED', false),
+        'databases' => [],
+    ],
+
     'connections' => [
         'source' => 'mysql',
         'destination' => 'mysql_replications',

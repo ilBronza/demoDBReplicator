@@ -13,34 +13,48 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class MenuAndEnvironmentTest extends TestCase
 {
-    public function test_menu_entry_is_under_packages_in_staging(): void
+    public function test_each_database_has_a_menu_entry_under_settings_in_staging_and_local(): void
     {
-        $this->environment('staging');
+        $this->importProfile();
+        config(['dbreplicator.imports.second' => ['label' => 'Archivio'], 'dbreplicator.imports.third' => ['label' => 'Catalogo']]);
         $menu = Mockery::mock();
         $parent = Mockery::mock();
-        $child = Mockery::mock();
-        $menu->shouldReceive('provideButton')->once()->with(Mockery::on(function ($parameters) {
-            return $parameters['name'] === 'packages';
+        $group = Mockery::mock();
+        $menu->shouldReceive('provideButton')->twice()->with(Mockery::on(function ($parameters) {
+            return $parameters['name'] === 'settings';
         }))->andReturn($parent);
-        $menu->shouldReceive('createButton')->once()->with(Mockery::on(function ($parameters) {
-            return $parameters['name'] === 'databaseReplicator'
-                && $parameters['href'] === route('replicate-db')
+        $menu->shouldReceive('createButton')->twice()->with(Mockery::on(function ($parameters) {
+            return $parameters['name'] === 'databaseImports'
+                && ! isset($parameters['href'])
                 && $parameters['roles'] === ['superadmin'];
-        }))->andReturn($child);
-        $parent->shouldReceive('addChild')->once()->with($child);
+        }))->andReturn($group);
+        foreach (['main' => 'Gestionale', 'second' => 'Archivio', 'third' => 'Catalogo'] as $name => $label) {
+            $child = Mockery::mock();
+            $menu->shouldReceive('createButton')->twice()->with(Mockery::on(function ($parameters) use ($name, $label) {
+                return $parameters['name'] === 'databaseImport-' . $name
+                    && $parameters['href'] === route('dbreplicator.import.show', ['database' => $name])
+                    && $parameters['text'] === $label && $parameters['roles'] === ['superadmin'];
+            }))->andReturn($child);
+            $group->shouldReceive('addChild')->twice()->with($child);
+        }
+        $parent->shouldReceive('addChild')->twice()->with($group);
         $this->app->instance('menu', $menu);
 
-        app(DemoDBReplicator::class)->manageMenuButtons();
+        foreach (['staging', 'local'] as $environment) {
+            $this->environment($environment);
+            app(DemoDBReplicator::class)->manageMenuButtons();
+        }
     }
 
-    public function test_menu_is_absent_in_production_and_local(): void
+    public function test_menu_is_absent_in_production_and_unknown_environments_even_with_profiles(): void
     {
+        $this->importProfile();
         $menu = Mockery::mock();
         $menu->shouldNotReceive('provideButton');
         $menu->shouldNotReceive('createButton');
         $this->app->instance('menu', $menu);
 
-        foreach (['production', 'local', 'testing'] as $environment) {
+        foreach (['production', 'testing', 'preview'] as $environment) {
             $this->environment($environment);
             app(DemoDBReplicator::class)->manageMenuButtons();
         }
@@ -48,23 +62,15 @@ class MenuAndEnvironmentTest extends TestCase
         $this->assertTrue(true);
     }
 
-    public function test_new_packages_section_uses_the_route_specific_roles(): void
+    public function test_menu_is_absent_without_configured_databases(): void
     {
         $this->environment('staging');
-        config(['dbreplicator.routeRoles.replicate-db' => ['database-manager']]);
         $menu = Mockery::mock();
-        $parent = Mockery::mock();
-        $child = Mockery::mock();
-
-        foreach (['provideButton' => $parent, 'createButton' => $child] as $method => $button) {
-            $menu->shouldReceive($method)->once()->with(Mockery::on(static function ($parameters) {
-                return $parameters['roles'] === ['database-manager'];
-            }))->andReturn($button);
-        }
-
-        $parent->shouldReceive('addChild')->once()->with($child);
+        $menu->shouldNotReceive('provideButton');
+        $menu->shouldNotReceive('createButton');
         $this->app->instance('menu', $menu);
         app(DemoDBReplicator::class)->manageMenuButtons();
+        $this->assertTrue(true);
     }
 
     public function test_direct_web_access_is_blocked_outside_staging(): void

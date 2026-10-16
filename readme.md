@@ -1,7 +1,8 @@
 # demoDBReplicator
 
-Laravel package for copying a MySQL/MariaDB database to staging or pulling a
-production database into local development. PHP coordinates the native database
+Laravel package for importing production MySQL/MariaDB databases into local or
+remote staging from a superadmin menu, or using the existing CLI workflows.
+PHP coordinates the native database
 clients through Symfony Process; no separate shell script is required.
 
 ## Installation
@@ -17,6 +18,175 @@ package defaults when Laravel configuration is not cached. After changing
 configuration or environment variables, clear/rebuild the application's config
 cache as appropriate.
 
+## Import production from Settings (local or remote staging)
+
+The **Settings → Database import → database name** menu is reserved for
+`superadmin`. Define any number of `imports` entries: each entry creates one
+submenu item. The destination application must have **`APP_ENV=local` or
+`APP_ENV=staging`**. Production and all other environments hide this menu and
+reject imports in middleware, controllers and the import service, including
+when routes are cached. The framework environment and `config('app.env')` must
+agree on an allowed environment. These import permissions cannot be broadened
+with the legacy `defaultRoles` / `routeRoles` options.
+
+Selecting a database opens a confirmation page showing the production host and
+the destination database. Its CSRF-protected POST triggers a server-to-server
+HTTPS request, downloads and verifies the complete dump, backs up the destination,
+removes its existing objects, and imports the dump. Credentials, URLs and
+destination connections come exclusively from server configuration.
+
+### Production setup
+
+Install/update this package **on the production Laravel project too**. Production
+needs only an explicit export allowlist and API credentials; all import profiles
+and destination settings belong to staging. The export API is disabled by default.
+
+Generate a distinct random secret for each source database, for example:
+
+```bash
+php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'
+```
+
+Set these values in production's `.env`:
+
+```dotenv
+APP_ENV=production
+IB_REPLICATOR_API_ENABLED=true
+IB_REPLICATOR_MAIN_API_TOKEN=<generated-secret>
+IB_REPLICATOR_ARCHIVE_API_TOKEN=<another-generated-secret>
+IB_REPLICATOR_CATALOG_API_TOKEN=<another-generated-secret>
+```
+
+Add the following to production's `config/dbreplicator.php`. Connection names
+refer to its own `config/database.php`:
+
+```php
+'export' => [
+    'enabled' => env('IB_REPLICATOR_API_ENABLED', false),
+    'databases' => [
+        'main' => ['connection' => 'mysql', 'token' => env('IB_REPLICATOR_MAIN_API_TOKEN')],
+        'archive' => ['connection' => 'mysql_archive', 'token' => env('IB_REPLICATOR_ARCHIVE_API_TOKEN')],
+        'catalog' => ['connection' => 'mysql_catalog', 'token' => env('IB_REPLICATOR_CATALOG_API_TOKEN')],
+    ],
+],
+```
+
+The endpoint is `POST /dbreplicator/api/exports/{database}`. It requires HTTPS
+and `Authorization: Bearer <secret>` matching that specific allowlisted entry.
+Tokens must have at least 32 characters. It does not accept database names,
+connection settings or shell arguments from the request body. Production only
+exports; this endpoint never imports or clears a database. Configure Laravel's
+trusted proxies correctly when TLS terminates at a reverse proxy.
+
+### Staging setup
+
+Configure the production token(s) in staging's `.env` too, together with:
+
+```dotenv
+APP_ENV=staging
+SESSION_DRIVER=file
+IB_REPLICATOR_API_ENABLED=false
+IB_REPLICATOR_MAIN_API_TOKEN=<same-secret-as-production-main>
+IB_REPLICATOR_ARCHIVE_API_TOKEN=<same-secret-as-production-archive>
+IB_REPLICATOR_CATALOG_API_TOKEN=<same-secret-as-production-catalog>
+```
+
+Use `APP_ENV=local` for a local development installation. File or Redis sessions
+keep the request independent of the database being replaced; the web import
+rejects `SESSION_DRIVER=database`. The initiating session is invalidated after
+an import attempt, including failure, because a partial import may also replace
+users with different identities.
+
+Example staging `config/dbreplicator.php` entries for three menu items:
+
+```php
+'imports' => [
+    'main' => [
+        'label' => 'Gestionale',
+        'url' => 'https://production.example.com/dbreplicator/api/exports/main',
+        'token' => env('IB_REPLICATOR_MAIN_API_TOKEN'),
+        'destination' => 'mysql',
+        'destinationGuard' => ['database' => 'gestionale_staging', 'host' => '127.0.0.1', 'port' => 3306],
+        'migrate' => false,
+    ],
+    'archive' => [
+        'label' => 'Archivio',
+        'url' => 'https://production.example.com/dbreplicator/api/exports/archive',
+        'token' => env('IB_REPLICATOR_ARCHIVE_API_TOKEN'),
+        'destination' => 'mysql_archive',
+        'destinationGuard' => ['database' => 'archivio_staging', 'host' => '127.0.0.1', 'port' => 3306],
+    ],
+    'catalog' => [
+        'label' => 'Catalogo',
+        'url' => 'https://production.example.com/dbreplicator/api/exports/catalog',
+        'token' => env('IB_REPLICATOR_CATALOG_API_TOKEN'),
+        'destination' => 'mysql_catalog',
+        'destinationGuard' => ['database' => 'catalogo_staging', 'host' => '127.0.0.1', 'port' => 3306],
+    ],
+],
+```
+
+Create the destination databases and Laravel connections beforehand. Profile
+keys use letters, digits, underscores or hyphens. Each profile can point to a
+different production application. `destinationGuard` is mandatory and must match
+the effective destination database, host and port exactly, including resolved
+connection URLs. For sockets replace `host` and `port` with
+`'unix_socket' => '/path/to/mysql.sock'`. A staging database on a different host
+is supported: put its explicit host/port in the guard. Use destination credentials
+scoped to the staging databases.
+
+The menu hooks into the host application's existing `manageMenuButtons()` flow
+and reuses its `settings` section. With the Italian locale the example produces
+**Impostazioni → Importazione database → Gestionale / Archivio / Catalogo**.
+
+### Transfer, replacement and recovery
+
+- Both servers need `mysqldump`; staging also needs `mysql`. SSH is not used by
+  this flow. Source and destination must be MySQL/MariaDB versions with compatible
+  dump SQL, including routine/event definers and required privileges.
+- Production finishes the dump before returning it. Staging streams it into a
+  private file and checks the byte count and SHA-256 before any replacement.
+  HTTP errors, redirects, truncated responses and invalid metadata stop the import.
+  TLS certificate verification cannot be disabled in the profile.
+- The server hostname, port and database identity sent by production are compared
+  with the destination as an additional check against copying a database onto
+  itself through a connection alias.
+- A successful destination dump is mandatory before deletion. Replacement drops
+  events, views, tables (and their triggers), functions and procedures, including
+  objects absent from the source. It leaves the existing database/schema itself
+  and its grants in place. MySQL DDL/import is not an atomic transaction.
+- File locks and a MySQL advisory lock serialize API imports to a destination,
+  including from different staging application hosts. They do not stop ordinary
+  application writes: use an idle staging instance and pause its workers during
+  replacement. Production's normal transactional dump consistency requirements
+  still apply.
+- Optional migrations are off by default for this flow. Set `migrate => true`
+  on the individual profile to run the current application's migrations on its
+  destination connection after import. The legacy global `migrate` setting does
+  not override this choice.
+- SQL files are private (`0600`) in `dumpFilePath`, which must be outside the
+  public web root. Production deletes its dump after streaming; staging removes
+  the downloaded dump after success and retains `staging-backup-*.sql`. A failed
+  replacement/migration retains the backup and downloaded dump, with their paths
+  in the application log. A failed transfer removes its partial file.
+- After a partial replacement, stop application writes and restore the recorded
+  backup to the same staging connection after clearing its objects. No automatic
+  rollback is attempted. Manage backup retention and remove stale export files
+  left by hard process/server termination.
+
+This web flow runs synchronously, with SQL streamed to disk rather than kept in
+PHP memory. Configure PHP-FPM, the web server and any proxies on **both** servers
+to permit the full operation; `dbreplicator.timeout` (default 1800 seconds) bounds
+each client process and the download separately, not the overall web request.
+Allow enough disk space for production's export and staging's download plus
+backup. A proxy timeout does not prove the server stopped: inspect logs before
+retrying. Applications needing jobs longer than their hosting's request limits
+must use a worker-based workflow instead of this synchronous endpoint.
+
+The full database includes production accounts, sessions, settings and scheduled
+database events. Keep staging's application workers/integrations configured for
+staging; this package does not anonymize data or copy uploads and environment files.
+
 ## Copy to staging
 
 Configure `connections.source` and `connections.destination` with the names of
@@ -30,10 +200,11 @@ The source is exported, destination tables/views are replaced, and migrations ru
 in `stagingPath` when `migrate` is enabled. Source and destination must differ.
 As before, this operation replaces the destination database contents.
 
-The **Pacchetti → Replica database** menu entry is available only with
-`APP_ENV=staging`. It reuses a menu section named `packages` if one already exists.
-The web route `dbreplicator/replicate-db` also requires the staging environment,
-authentication and a role from `defaultRoles`/`routeRoles` (default: `superadmin`).
+The old **Pacchetti → Replica database** menu has been replaced by the Settings
+menu described above. The legacy web route `dbreplicator/replicate-db` now only
+accepts **POST with CSRF**, requires `APP_ENV=staging` and `superadmin`, and still
+applies `defaultRoles`/`routeRoles` as an additional restriction. Existing callers
+using a GET link must be updated; visiting a GET URL no longer replaces data.
 The staging environment restriction applies to the web action; the existing
 console replication command remains available for established server workflows.
 
