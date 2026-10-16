@@ -9,6 +9,16 @@ use Throwable;
 
 class MySqlClient
 {
+    public function databaseIdentity(string $name): string
+    {
+        $settings = $this->connectionConfig($name);
+        $server = DB::connection($name)->selectOne('SELECT @@hostname AS hostname, @@port AS port', [], false);
+
+        return hash('sha256', json_encode([
+            (string) $server->hostname, (string) $server->port, $settings['database'],
+        ], JSON_THROW_ON_ERROR));
+    }
+
     public function connectionConfig(string $name): array
     {
         if (! is_array(config("database.connections.{$name}"))) {

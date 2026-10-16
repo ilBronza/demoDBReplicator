@@ -97,6 +97,50 @@ class DatabaseReplicator
         }
     }
 
+    public function withDatabaseLock(string $name, callable $callback)
+    {
+        $settings = $this->client->connectionConfig($name);
+        $connection = DB::connection($name);
+        $key = 'dbreplicator:' . substr(hash('sha256', $settings['database']), 0, 48);
+        $result = $connection->selectOne('SELECT GET_LOCK(?, 0) AS acquired', [$key], false);
+
+        if ((int) ($result->acquired ?? 0) !== 1) {
+            throw new RuntimeException('Another database import is already running on this destination.');
+        }
+
+        try {
+            return $callback();
+        } finally {
+            $connection->selectOne('SELECT RELEASE_LOCK(?) AS released', [$key], false);
+        }
+    }
+
+    public function dropAllDestinationObjects(string $name): void
+    {
+        $settings = $this->client->connectionConfig($name);
+        $connection = DB::connection($name);
+        // Read routine/event metadata before changing anything.
+        $events = $connection->table('information_schema.events')->useWritePdo()
+            ->where('EVENT_SCHEMA', $settings['database'])->get(['EVENT_NAME']);
+        $routines = $connection->table('information_schema.routines')->useWritePdo()
+            ->where('ROUTINE_SCHEMA', $settings['database'])->get(['ROUTINE_NAME', 'ROUTINE_TYPE']);
+
+        foreach ($events as $event) {
+            $connection->statement('DROP EVENT IF EXISTS `' . str_replace('`', '``', $event->EVENT_NAME) . '`');
+        }
+
+        // Dropping tables also removes their triggers.
+        $this->dropAllDestinationTables($name);
+
+        foreach ($routines as $routine) {
+            if (! in_array($routine->ROUTINE_TYPE, ['FUNCTION', 'PROCEDURE'], true)) {
+                throw new RuntimeException('Unknown database routine type.');
+            }
+            $connection->statement('DROP ' . $routine->ROUTINE_TYPE . ' IF EXISTS `'
+                . str_replace('`', '``', $routine->ROUTINE_NAME) . '`');
+        }
+    }
+
     protected function assertDifferentDatabases(): void
     {
         $source = $this->client->connectionConfig(config('dbreplicator.connections.source'));
